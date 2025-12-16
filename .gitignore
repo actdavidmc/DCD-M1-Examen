@@ -1,0 +1,15 @@
+# Python / Jupyter
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+
+# OS
+.DS_Store
+
+# Datos crudos
+datos/
+datos.zip
+
+# Outputs (los generados)
+output/
