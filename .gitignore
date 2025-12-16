@@ -7,9 +7,8 @@ __pycache__/
 # OS
 .DS_Store
 
-# Datos crudos
-datos/
-datos.zip
-
 # Outputs (los generados)
 output/
+
+# Miscelánea
+Examen-G33.pdf
