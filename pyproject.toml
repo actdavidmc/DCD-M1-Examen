@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "examen-g33"
+version = "0.1.0"
+description = "Paquete para el Examen Modulo 1 Ciencia de Datos"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas",
+  "numpy",
+  "matplotlib",
+  "scikit-learn",
+  "openpyxl",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["examen*"]

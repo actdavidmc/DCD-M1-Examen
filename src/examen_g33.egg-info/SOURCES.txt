@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/examen/__init__.py
+src/examen/cargar_datos.py
+src/examen/perfil_datos.py
+src/examen/validar_datos.py
+src/examen_g33.egg-info/PKG-INFO
+src/examen_g33.egg-info/SOURCES.txt
+src/examen_g33.egg-info/dependency_links.txt
+src/examen_g33.egg-info/requires.txt
+src/examen_g33.egg-info/top_level.txt
