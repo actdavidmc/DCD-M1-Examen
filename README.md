@@ -15,18 +15,20 @@ Este repositorio contiene la solución del **Examen G33**. El flujo implementa:
 
 ```
 .
-├── Examen-G33.pdf
-├── reporte.ipynb
+├── data/
+│   ├── datos-20240720T141705Z-001.zip
 ├── examen/
 │   ├── cargar_datos.py
 │   ├── validar_datos.py
 │   ├── perfil_datos.py
 │   ├── analiticas.py
 │   └── modelado.py
-├── data/
+├── resultado/
 │   ├── usuarios.csv
 │   ├── restaurantes.csv
 │   └── pca_2d.png
+├── reporte.ipynb
+├── reporte.pdf
 └── requirements.txt
 ```
 
@@ -59,7 +61,7 @@ Notebook principal:
 
 Se generan / incluyen:
 
-- `data/usuarios.csv`
-- `data/restaurantes.csv`
-- `data/pca_2d.png`
+- `resultado/usuarios.csv`
+- `resultado/restaurantes.csv`
+- `resultado/pca_2d.png`
 - `reporte.ipynb`
