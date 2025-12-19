@@ -1,15 +1,12 @@
 # Python / Jupyter
+.vscode/
 .venv/
 __pycache__/
 .ipynb_checkpoints/
 *.pyc
-.vscode/
 
 # OS
 .DS_Store
-
-# Outputs (los generados)
-output/
 
 # Miscelánea
 Examen-G33.pdf
