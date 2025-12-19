@@ -320,12 +320,12 @@ def construir_preprocesador(X: pd.DataFrame) -> ColumnTransformer:
     pre = ColumnTransformer(
         transformers=[
             ("num", Pipeline([
-                ("san", FunctionTransformer(_num_sanitize, validate=False)),
+                ("san", FunctionTransformer(_num_sanitize, validate=False, feature_names_out="one-to-one")),
                 ("imp", SimpleImputer(strategy="median", missing_values=np.nan)),
                 ("sc", StandardScaler()),
             ]), num_cols),
             ("cat", Pipeline([
-                ("san", FunctionTransformer(_cat_sanitize, validate=False)),
+                ("san", FunctionTransformer(_cat_sanitize, validate=False, feature_names_out="one-to-one")),
                 ("imp", SimpleImputer(strategy="most_frequent", missing_values=np.nan)),
                 ("oh", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
             ]), cat_cols),
