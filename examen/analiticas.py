@@ -9,6 +9,23 @@ import pandas as pd
 DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 NA_TOKENS_DEFAULT = {"?", "", "NA", "N/A", "NULL", "null", "None", "none", "nan"}
+BOOL_TF_MAP = {"t": True, "true": True, "1": True, "f": False, "false": False, "0": False}
+
+USER_COL_ORDER = [
+    "userID", "latitude", "longitude", "smoker", "drink_level", "dress_preference",
+    "ambience", "transport", "marital_status", "hijos", "birth_year", "interest",
+    "personality", "religion", "activity", "color", "weight", "budget", "height",
+    "user_cuisines", "n_user_cuisines", "user_payments", "n_user_payments", "age_ref",
+]
+
+REST_COL_ORDER = [
+    "placeID", "latitude", "longitude", "the_geom_meter", "name", "address", "city",
+    "state", "country", "fax", "zip", "alcohol", "smoking_area", "dress_code",
+    "accessibility", "price", "url", "Rambience", "franchise", "area", "other_services",
+    "rest_cuisines", "n_rest_cuisines", "rest_payments", "n_rest_payments",
+    "rest_parking_types", "n_rest_parking_types",
+    "hours_Mon", "hours_Tue", "hours_Wed", "hours_Thu", "hours_Fri", "hours_Sat", "hours_Sun",
+]
 
 
 def _to_key(x: object) -> str:
@@ -31,6 +48,28 @@ def _colapsar_espacios(s: pd.Series) -> pd.Series:
     out = s.astype("string").str.strip()
     out = out.str.replace(r"\s+", " ", regex=True)
     return out
+
+
+def _reordenar_columnas(df: pd.DataFrame, orden: Iterable[str]) -> pd.DataFrame:
+    """Reordena columnas trayendo primero `orden` y deja el resto al final sin perderlas."""
+    preferidas = [c for c in orden if c in df.columns]
+    restantes = [c for c in df.columns if c not in preferidas]
+    return df[preferidas + restantes]
+
+
+def _convertir_booleano(df: pd.DataFrame, col: str, mapping: dict[str, bool]) -> pd.DataFrame:
+    """
+    Convierte una columna string/objeto a booleano usando un mapping; conserva NaN.
+
+    Si la columna ya es booleana o no existe, regresa el DF sin modificarlo.
+    """
+    if col not in df.columns or pd.api.types.is_bool_dtype(df[col]):
+        return df
+
+    if pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
+        s = df[col].astype("string").str.strip().str.lower()
+        df[col] = s.map(mapping).astype("boolean")
+    return df
 
 
 def normalizar_texto_columnas(
@@ -229,34 +268,11 @@ def pivot_hours_por_dia(hours_df: pd.DataFrame) -> pd.DataFrame:
     return wide[["placeID"] + [f"hours_{d}" for d in DAY_ORDER]]
 
 
-def normalizar_bool_smoker(s: pd.Series) -> pd.Series:
-    """
-    Convierte smoker a dtype boolean:
-    - 'true'/'false' (cualquier case) -> True/False
-    - '?'/'NA'/''/None -> <NA>
-    """
-    x = s.astype("string").str.strip().str.lower()
-    x = x.replace(list(NA_TOKENS_DEFAULT), pd.NA)
-    out = x.map({"true": True, "false": False}).astype("boolean")
-    return out
-
-
-def normalizar_bool_franchise(s: pd.Series) -> pd.Series:
-    """
-    Convierte franchise a dtype boolean:
-    - 't'/'f' (cualquier case) -> True/False
-    - '?'/'NA'/''/None -> <NA>
-    """
-    x = s.astype("string").str.strip().str.lower()
-    x = x.replace(list(NA_TOKENS_DEFAULT), pd.NA)
-    out = x.map({"t": True, "f": False}).astype("boolean")
-    return out
-
-
 def limpiar_users(users: pd.DataFrame) -> pd.DataFrame:
     """
     Limpieza específica de users:
     - normaliza texto y reemplaza '?' por NaN en variables categóricas clave
+    - convierte smoker a booleano
     - estandariza coordenadas (6 decimales) y valida rangos
 
     No elimina columnas ni filas.
@@ -269,10 +285,8 @@ def limpiar_users(users: pd.DataFrame) -> pd.DataFrame:
         "activity", "color", "budget",
     ]
     out = normalizar_texto_columnas(out, cols=cols_cat)
+    out = _convertir_booleano(out, "smoker", BOOL_TF_MAP)
     out = estandarizar_coordenadas(out, lat_col="latitude", lon_col="longitude", decimals=6, validar_rango=True)
-
-    if "smoker" in out.columns:
-        out["smoker"] = normalizar_bool_smoker(out["smoker"])
 
     return out
 
@@ -283,6 +297,7 @@ def limpiar_restaurants(rest: pd.DataFrame) -> pd.DataFrame:
     - Reemplaza '?' por NaN en address/zip/url/fax/city/state/country/name
     - Normaliza espacios
     - Estandariza city/state/country para reducir variantes
+    - Convierte franchise a booleano
     - Estandariza coordenadas
 
     No elimina columnas ni filas.
@@ -302,10 +317,8 @@ def limpiar_restaurants(rest: pd.DataFrame) -> pd.DataFrame:
 
     out = estandarizar_ubicacion(out, city_col="city", state_col="state", country_col="country")
 
+    out = _convertir_booleano(out, "franchise", BOOL_TF_MAP)
     out = estandarizar_coordenadas(out, lat_col="latitude", lon_col="longitude", decimals=6, validar_rango=True)
-
-    if "franchise" in out.columns:
-        out["franchise"] = normalizar_bool_franchise(out["franchise"])
 
     return out
 
@@ -409,6 +422,9 @@ def construir_dim_usuario(
         if c in dim_user.columns:
             dim_user[c] = _normalizar_listas_post(dim_user[c], sep_in=",", sep_out=" | ")
 
+    dim_user = _reordenar_columnas(dim_user, USER_COL_ORDER)
+    dim_user = dim_user.sort_values("userID").reset_index(drop=True)
+
     return dim_user
 
 
@@ -474,6 +490,9 @@ def construir_dim_restaurante(
 
     dim_place = estandarizar_ubicacion(dim_place, city_col="city", state_col="state", country_col="country")
 
+    dim_place = _reordenar_columnas(dim_place, REST_COL_ORDER)
+    dim_place = dim_place.sort_values("placeID").reset_index(drop=True)
+
     return dim_place
 
 
@@ -499,13 +518,8 @@ def limpieza_final_base(base: pd.DataFrame) -> pd.DataFrame:
 
     out = estandarizar_ubicacion(out, city_col="city", state_col="state", country_col="country")
 
-    if "smoker" in out.columns and (pd.api.types.is_object_dtype(out["smoker"]) or pd.api.types.is_string_dtype(out["smoker"])):
-        s = out["smoker"].astype("string").str.strip().str.lower()
-        out["smoker"] = s.map({"true": True, "false": False}).astype("boolean")
-
-    if "franchise" in out.columns and (pd.api.types.is_object_dtype(out["franchise"]) or pd.api.types.is_string_dtype(out["franchise"])):
-        f = out["franchise"].astype("string").str.strip().str.lower()
-        out["franchise"] = f.map({"t": True, "f": False}).astype("boolean")
+    out = _convertir_booleano(out, "smoker", BOOL_TF_MAP)
+    out = _convertir_booleano(out, "franchise", BOOL_TF_MAP)
 
     return out
 
