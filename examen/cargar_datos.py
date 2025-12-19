@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Optional
 from pathlib import Path, PurePosixPath
 
@@ -81,13 +82,11 @@ def cargar_dfs_desde_zip_en_data() -> dict[str, pd.DataFrame]:
             if not (low.endswith(".csv") or low.endswith(".xlsx")):
                 continue
 
-            # ---- construir key: quitar prefijo "datos/" y usar "<stem>_<ext>" ----
-            p = PurePosixPath(name)  # paths internos del zip usan /
-            stem = p.stem  # users
-            ext = p.suffix.lstrip(".").lower()  # csv / xlsx
-            key = f"{stem}_{ext}"  # users_csv, users_xlsx
+            p = PurePosixPath(name)
+            stem = p.stem 
+            ext = p.suffix.lstrip(".").lower()
+            key = f"{stem}_{ext}"
 
-            # evitar colisiones si existieran repetidos
             if key in dfs:
                 i = 2
                 new_key = f"{key}_{i}"
@@ -95,7 +94,6 @@ def cargar_dfs_desde_zip_en_data() -> dict[str, pd.DataFrame]:
                     i += 1
                     new_key = f"{key}_{i}"
                 key = new_key
-            # --------------------------------------------------------------------
 
             print(f"Leyendo {name} -> key={key}")
 
@@ -116,8 +114,7 @@ def cargar_dfs_desde_zip_en_data() -> dict[str, pd.DataFrame]:
 def obtener_csvs(
     dfs: dict[str, pd.DataFrame],
     ordenar: bool = True,
-    orden: Optional[list[str]] = None,
-) -> dict[str, pd.DataFrame]:
+    orden: Optional[list[str]] = None,) -> dict[str, pd.DataFrame]:
     """
     Filtra el diccionario `dfs` y regresa solo los DataFrames provenientes de CSV.
     Opcionalmente los ordena en un orden canónico (útil para lectura/diagrama).
@@ -145,10 +142,15 @@ def obtener_csvs(
 
     if orden is None:
         orden = [
-            "usercuisine_csv", "users_csv", "userpayment_csv",
-            "ratings_csv",
-            "parking_csv", "restaurants_csv", "cuisine_csv",
-            "payment_methods_csv", "hours_csv",
+            "users_csv",
+            "usercuisine_csv", 
+            "userpayment_csv",
+            "ratings_csv", 
+            "restaurants_csv", 
+            "parking_csv",
+            "cuisine_csv",
+            "payment_methods_csv", 
+            "hours_csv",
         ]
 
     out = {k: dfs_csv[k] for k in orden if k in dfs_csv}

@@ -56,12 +56,10 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
         else:
             tipo = "Otro"
 
-        # defaults
         min_v = max_v = media_v = None
         moda_v = None
         top3_v = None
 
-        # numéricas: min/max/media
         if pd.api.types.is_numeric_dtype(s):
             s_num = pd.to_numeric(s, errors="coerce")
             if s_num.notna().any():
@@ -69,7 +67,6 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
                 max_v = float(s_num.max())
                 media_v = float(s_num.mean())
 
-        # categóricas/texto: moda + top 3
         if pd.api.types.is_object_dtype(s) or pd.api.types.is_categorical_dtype(s) or pd.api.types.is_bool_dtype(s):
             vc = s.value_counts(dropna=True)
             if len(vc) > 0:
@@ -172,7 +169,7 @@ def cardinalidad_por_llave(
     df: pd.DataFrame,
     key: str,
     universe: Optional[set[Any]] = None,
-) -> KeyCardinality:
+    ) -> KeyCardinality:
     """
     Calcula cardinalidad de registros por llave y (opcionalmente) cobertura contra un universo.
 
@@ -222,7 +219,8 @@ def reporte_relacional(
     dfs: Dict[str, pd.DataFrame],
     ratings_key: str = "ratings_csv",
     keys: Iterable[str] = ("userID", "placeID"),
-) -> pd.DataFrame:
+    df_order: Optional[list[str]] = None,
+    ) -> pd.DataFrame:
     """
     Genera un reporte tabular de llaves, cardinalidad y cobertura (vs universo de ratings).
 
@@ -262,5 +260,18 @@ def reporte_relacional(
                     "pct_keys_in_universe": st.pct_keys_in_universe,
                 })
 
-    return pd.DataFrame(rows_out).sort_values(["key", "df"]).reset_index(drop=True)
+    rep = pd.DataFrame(rows_out)
+
+    if df_order is None:
+        df_order = list(dfs.keys())
+
+    order_map = {name: i for i, name in enumerate(df_order)}
+    rep["df_order"] = rep["df"].map(order_map).fillna(len(order_map)).astype(int)
+
+    key_order = {"userID": 0, "placeID": 1}
+    rep["key_order"] = rep["key"].map(key_order).fillna(99).astype(int)
+
+    rep = rep.sort_values(["df_order", "key_order", "key"]).drop(columns=["df_order", "key_order"])
+
+    return rep.reset_index(drop=True)
 
