@@ -1,7 +1,11 @@
+from __future__ import annotations
+from typing import Optional
 from pathlib import Path, PurePosixPath
+
 import zipfile
 import pandas as pd
 import io
+
 
 def encontrar_raiz_del_proyecto() -> Path:
     """
@@ -108,18 +112,47 @@ def cargar_dfs_desde_zip_en_data() -> dict[str, pd.DataFrame]:
 
     return dfs
 
-def obtener_csvs(dfs: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+
+def obtener_csvs(
+    dfs: dict[str, pd.DataFrame],
+    ordenar: bool = True,
+    orden: Optional[list[str]] = None,
+) -> dict[str, pd.DataFrame]:
     """
-    Filtra el diccionario dfs y regresa solo los DataFrames provenientes de CSV.
+    Filtra el diccionario `dfs` y regresa solo los DataFrames provenientes de CSV.
+    Opcionalmente los ordena en un orden canónico (útil para lectura/diagrama).
 
     Parameters
     ----------
     dfs
         Diccionario general devuelto por `cargar_dfs_desde_zip_en_data()`.
+    ordenar
+        Si True, reordena los DataFrames usando `orden` (si se provee) o un orden
+        canónico por defecto.
+    orden
+        Lista de llaves en el orden deseado. Las llaves no incluidas se agregan al final
+        preservando su orden original. Si es None, se usa el orden canónico por defecto.
 
     Returns
     -------
     dict[str, pd.DataFrame]
-        Sub-diccionario con llaves que terminan en '_csv'.
+        Sub-diccionario con llaves que terminan en '_csv', y (si `ordenar=True`) ordenado.
     """
-    return {k: v for k, v in dfs.items() if k.endswith("_csv")}
+    dfs_csv = {k: v for k, v in dfs.items() if k.endswith("_csv")}
+
+    if not ordenar:
+        return dfs_csv
+
+    if orden is None:
+        orden = [
+            "usercuisine_csv", "users_csv", "userpayment_csv",
+            "ratings_csv",
+            "parking_csv", "restaurants_csv", "cuisine_csv",
+            "payment_methods_csv", "hours_csv",
+        ]
+
+    out = {k: dfs_csv[k] for k in orden if k in dfs_csv}
+    for k in dfs_csv:
+        if k not in out:
+            out[k] = dfs_csv[k]
+    return out
