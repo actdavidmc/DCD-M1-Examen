@@ -375,7 +375,6 @@ def pca_2d_y_png(
     return {"Z": Z, "explained_var": explained, "png_path": out_png}
 
 
-
 def clustering_variables_representantes(
     X: pd.DataFrame,
     y: Optional[pd.Series] = None,
@@ -399,6 +398,17 @@ def clustering_variables_representantes(
     pre = construir_preprocesador(X)
     X_proc = pre.fit_transform(X)
     feat_names = list(pre.get_feature_names_out())
+
+    # --- FIX: eliminar columnas constantes (varianza 0) para evitar warnings en corrcoef ---
+    var = np.var(X_proc, axis=0)
+    mask = var > 0
+
+    # si casi todo es constante, no hay clustering útil
+    if np.sum(mask) < 2:
+        return pd.DataFrame(columns=["cluster", "feature", "score"])
+
+    X_proc = X_proc[:, mask]
+    feat_names = [n for i, n in enumerate(feat_names) if mask[i]]
 
     # correlación entre columnas (variables)
     corr = np.corrcoef(X_proc, rowvar=False)
@@ -425,7 +435,9 @@ def clustering_variables_representantes(
 
     if y is not None:
         y_arr = pd.to_numeric(y, errors="coerce").fillna(0).astype(int).values
-        score = mutual_info_classif(X_proc, y_arr, discrete_features="auto", random_state=random_state)
+        score = mutual_info_classif(
+            X_proc, y_arr, discrete_features="auto", random_state=random_state
+        )
     else:
         score = np.var(X_proc, axis=0)
 
@@ -463,10 +475,23 @@ def selectkbest_top(
 
     y_arr = pd.to_numeric(y, errors="coerce").fillna(0).astype(int).values
 
+    # --- FIX: quitar columnas constantes para evitar warnings en f_classif ---
+    var = np.var(X_proc, axis=0)
+    mask = var > 0
+
+    if np.sum(mask) == 0:
+        return pd.DataFrame(columns=["feature", "f_score"])
+
+    X_proc = X_proc[:, mask]
+    feat_names = [n for i, n in enumerate(feat_names) if mask[i]]
+
     sel = SelectKBest(score_func=f_classif, k=min(k, X_proc.shape[1]))
     sel.fit(X_proc, y_arr)
 
     scores = sel.scores_
+    # --- FIX: si hay NaN en scores, que no rompa el ordenamiento ---
+    scores = np.nan_to_num(scores, nan=-np.inf)
+
     idx = np.argsort(scores)[::-1][:min(k, len(scores))]
 
     return pd.DataFrame({
