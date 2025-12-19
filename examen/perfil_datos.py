@@ -5,7 +5,7 @@ from typing import Dict, Iterable, Optional, Any
 import pandas as pd
 
 
-def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
+def tabla_perfil_variables(df: pd.DataFrame, dropna_en_categoricas: bool = True) -> pd.DataFrame:
     """
     Genera una tabla de perfil por variable (sin modificar los datos), útil para EDA previo a limpieza.
 
@@ -16,12 +16,15 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
     - Nulos, %Nulos
     - Unicos, %Cardinalidad (Unicos / N * 100)
     - Min, Max, Media (si aplica a numéricas)
-    - Moda, Top_3 (si aplica a categóricas/texto)
+    - Moda, Top (si aplica a categóricas/texto/booleano)
 
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame a perfilar.
+    dropna_en_categoricas : bool, default True
+        Si True, ignora NaN al calcular moda y top para variables categóricas/texto/booleano.
+        Si False, incluye NaN como categoría en value_counts.
 
     Returns
     -------
@@ -41,7 +44,7 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
         unicos = int(s.nunique(dropna=True))
         pct_card = (unicos / n * 100) if n else 0.0
 
-        # inferencia simple
+        # Inferencia simple de tipo
         if pd.api.types.is_bool_dtype(s):
             tipo = "Booleano"
         elif pd.api.types.is_datetime64_any_dtype(s):
@@ -51,15 +54,18 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
         elif pd.api.types.is_categorical_dtype(s):
             tipo = "Categorica"
         elif pd.api.types.is_object_dtype(s):
-            # si son muchos únicos, lo tratamos como "Texto"
+            # Si son muchos únicos, lo tratamos como "Texto"
             tipo = "Texto" if (n and (unicos / n) > 0.2) else "Categorica"
         else:
             tipo = "Otro"
 
-        min_v = max_v = media_v = None
-        moda_v = None
-        top3_v = None
+        min_v: Optional[float] = None
+        max_v: Optional[float] = None
+        media_v: Optional[float] = None
+        moda_v: Optional[str] = None
+        top_v: Optional[str] = None
 
+        # Métricas numéricas
         if pd.api.types.is_numeric_dtype(s):
             s_num = pd.to_numeric(s, errors="coerce")
             if s_num.notna().any():
@@ -67,12 +73,29 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
                 max_v = float(s_num.max())
                 media_v = float(s_num.mean())
 
-        if pd.api.types.is_object_dtype(s) or pd.api.types.is_categorical_dtype(s) or pd.api.types.is_bool_dtype(s):
-            vc = s.value_counts(dropna=True)
+        # Métricas categóricas/texto/booleano
+        if (
+            pd.api.types.is_object_dtype(s)
+            or pd.api.types.is_categorical_dtype(s)
+            or pd.api.types.is_bool_dtype(s)
+        ):
+            vc = s.value_counts(dropna=dropna_en_categoricas)
+
             if len(vc) > 0:
-                moda_v = vc.index[0]
-                top3 = vc.head(3)
-                top3_v = ", ".join([f"{idx} ({int(cnt)})" for idx, cnt in top3.items()])
+                moda_v = str(vc.index[0])
+
+                n_unique = vc.shape[0]
+                max_list = 30  # muestra todos si hay <=30 categorías
+                top_n = 10     # si hay más, muestra top 10
+
+                if n_unique <= max_list:
+                    top_v = ", ".join([f"{idx} ({int(cnt)})" for idx, cnt in vc.items()])
+                else:
+                    topk = vc.head(top_n)
+                    other_count = int(vc.iloc[top_n:].sum())
+                    top_v = ", ".join([f"{idx} ({int(cnt)})" for idx, cnt in topk.items()])
+                    if other_count > 0:
+                        top_v += f", Otros ({other_count})"
 
         rows.append({
             "Variable": col,
@@ -86,11 +109,10 @@ def tabla_perfil_variables(df: pd.DataFrame) -> pd.DataFrame:
             "Max": max_v,
             "Media": media_v,
             "Moda": moda_v,
-            "Top_3": top3_v,
+            "Top": top_v,
         })
 
     out = pd.DataFrame(rows)
-
     out = out.sort_values(["%Nulos", "%Cardinalidad"], ascending=False).reset_index(drop=True)
     return out
 
